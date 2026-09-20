@@ -27,15 +27,19 @@ function parseForecastData(data: any[]): DailyForecast[] {
 
   const forecasts: DailyForecast[] = [];
   const timeSeries = data[0]?.timeSeries || [];
+  const weeklyTimeSeries = data[1]?.timeSeries || [];
 
   console.log("TimeSeries count:", timeSeries.length);
+  console.log("Weekly TimeSeries count:", weeklyTimeSeries.length);
 
   // 天気予報（timeSeries[0]）
   const weatherSeries = timeSeries[0];
   // 降水確率（timeSeries[1]）
   const popSeries = timeSeries[1];
-  // 気温（timeSeries[2]）- 存在しない場合もある
+  // 気温（timeSeries[2]）- 詳細予報の気温
   const tempSeries = timeSeries[2];
+  // 週間予報の気温（data[1].timeSeries[1]）
+  const weeklyTempSeries = weeklyTimeSeries[1];
 
   if (!weatherSeries || !weatherSeries.timeDefines) {
     console.warn("No weather series data");
@@ -47,19 +51,35 @@ function parseForecastData(data: any[]): DailyForecast[] {
   weatherSeries.timeDefines.forEach((time: string, index: number) => {
     const area = weatherSeries.areas?.[0];
     
-    // 気温データの抽出（timeSeries[2]から）
+    // 気温データの抽出
     let tempMin = "--";
     let tempMax = "--";
     
+    // まず詳細予報（timeSeries[2]）から取得を試みる
     if (tempSeries && tempSeries.areas && tempSeries.areas[0]) {
       const tempArea = tempSeries.areas[0];
       
-      // tempsMinとtempsMaxは直接配列として存在
-      if (tempArea.tempsMin && tempArea.tempsMin[index] !== undefined && tempArea.tempsMin[index] !== "") {
-        tempMin = tempArea.tempsMin[index];
+      // temps は6時間ごとの気温配列（最低、最高）
+      if (tempArea.temps && tempArea.temps.length > 0) {
+        if (tempArea.temps[0] !== undefined && tempArea.temps[0] !== "") {
+          tempMin = tempArea.temps[0];
+        }
+        if (tempArea.temps[1] !== undefined && tempArea.temps[1] !== "") {
+          tempMax = tempArea.temps[1];
+        }
       }
-      if (tempArea.tempsMax && tempArea.tempsMax[index] !== undefined && tempArea.tempsMax[index] !== "") {
-        tempMax = tempArea.tempsMax[index];
+    }
+    
+    // 詳細予報に気温がない場合、週間予報から取得
+    if ((tempMin === "--" || tempMax === "--") && weeklyTempSeries && weeklyTempSeries.areas && weeklyTempSeries.areas[0]) {
+      const weeklyTempArea = weeklyTempSeries.areas[0];
+      
+      // tempsMin と tempsMax は日ごとの配列
+      if (weeklyTempArea.tempsMin && weeklyTempArea.tempsMin[index] !== undefined && weeklyTempArea.tempsMin[index] !== "") {
+        tempMin = weeklyTempArea.tempsMin[index];
+      }
+      if (weeklyTempArea.tempsMax && weeklyTempArea.tempsMax[index] !== undefined && weeklyTempArea.tempsMax[index] !== "") {
+        tempMax = weeklyTempArea.tempsMax[index];
       }
     }
 
