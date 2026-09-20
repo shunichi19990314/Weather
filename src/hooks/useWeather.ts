@@ -20,27 +20,55 @@ interface UseWeatherResult {
 }
 
 function parseForecastData(data: any[]): DailyForecast[] {
-  if (!data || data.length === 0) return [];
+  if (!data || data.length === 0) {
+    console.warn("No data received");
+    return [];
+  }
 
   const forecasts: DailyForecast[] = [];
   const timeSeries = data[0]?.timeSeries || [];
 
+  console.log("TimeSeries count:", timeSeries.length);
+  console.log("TimeSeries structure:", timeSeries);
+
   // 天気予報（timeSeries[0]）
   const weatherSeries = timeSeries[0];
-  // 気温予報（timeSeries[1]）
+  // 気温予報（timeSeries[1]）- 存在しない場合もある
   const tempSeries = timeSeries[1];
 
-  if (!weatherSeries || !weatherSeries.timeDefines) return [];
+  if (!weatherSeries || !weatherSeries.timeDefines) {
+    console.warn("No weather series data");
+    return [];
+  }
 
   const dateLabels = ["今日", "明日", "明後日"];
 
   weatherSeries.timeDefines.forEach((time: string, index: number) => {
     const area = weatherSeries.areas?.[0];
-    const tempArea = tempSeries?.areas?.[0];
+    
+    // 気温データの抽出（構造が異なる場合に対応）
+    let tempMin = "--";
+    let tempMax = "--";
+    
+    if (tempSeries && tempSeries.areas && tempSeries.areas[0]) {
+      const tempArea = tempSeries.areas[0];
+      
+      // tempsMinとtempsMaxの構造を確認
+      if (tempArea.tempsMin && tempArea.tempsMin.temps) {
+        tempMin = tempArea.tempsMin.temps[index] || "--";
+      }
+      if (tempArea.tempsMax && tempArea.tempsMax.temps) {
+        tempMax = tempArea.tempsMax.temps[index] || "--";
+      }
+    }
 
     const date = new Date(time);
     const month = date.getMonth() + 1;
     const day = date.getDate();
+
+    // 降水確率の取得
+    const pop = area?.pops?.[index];
+    const popValue = pop !== undefined && pop !== null ? pop : "--";
 
     forecasts.push({
       date: `${month}/${day}`,
@@ -49,12 +77,13 @@ function parseForecastData(data: any[]): DailyForecast[] {
       weatherCode: area?.weatherCodes?.[index] || "100",
       wind: area?.winds?.[index] || "",
       wave: area?.waves?.[index] || "",
-      pop: area?.pops?.[index] || "--",
-      tempMin: tempArea?.tempsMin?.temps?.[index] || "--",
-      tempMax: tempArea?.tempsMax?.temps?.[index] || "--",
+      pop: popValue,
+      tempMin: tempMin,
+      tempMax: tempMax,
     });
   });
 
+  console.log("Parsed forecasts:", forecasts);
   return forecasts;
 }
 

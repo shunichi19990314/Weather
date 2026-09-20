@@ -241,7 +241,7 @@ function App() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-xs text-white/60 mb-1">💧 降水確率</div>
-                  <div className="text-2xl font-light text-white">{currentForecast.pop}%</div>
+                  <div className="text-2xl font-light text-white">{currentForecast.pop !== "--" ? `${currentForecast.pop}%` : "--"}</div>
                 </div>
                 {currentForecast.wind && (
                   <div>
@@ -284,7 +284,7 @@ function App() {
                           )}
                         </div>
                         <div className="text-xs text-white/70 w-12 text-right">
-                          💧{forecast.pop}%
+                          💧{forecast.pop !== "--" ? `${forecast.pop}%` : "--"}
                         </div>
                       </div>
                     </div>
