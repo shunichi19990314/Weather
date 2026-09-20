@@ -1,5 +1,23 @@
-```typescript
-// No build artifacts, dependencies, or temporary files detected in changes
-// Only source code modification (src/types/weather.ts)
-// No additional .gitignore rules needed
+```
+# Build artifacts
+dist/
+build/
+*.css
+*.js
+
+# Dependencies
+node_modules/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
 ```

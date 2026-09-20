@@ -39,11 +39,6 @@ function App() {
     ? prefectures.find((p) => p.code === selectedCode)
     : null;
 
-  const handleManualSelect = (code: string) => {
-    setIsManualSelection(true);
-    setSelectedCode(code);
-  };
-
   const handleResetToCurrentLocation = () => {
     setIsManualSelection(false);
     if (geoAreaCode) {
@@ -51,6 +46,11 @@ function App() {
     } else {
       retryGeolocation();
     }
+  };
+
+  const handleMapSelect = (code: string) => {
+    setIsManualSelection(true);
+    setSelectedCode(code);
   };
 
   const isLoading = geoLoading || (weatherLoading && selectedCode);
@@ -189,7 +189,7 @@ function App() {
         {/* 地域選択 */}
         {isManualSelection && (
           <div className="mb-6">
-            <RegionSelector selectedCode={selectedCode || ""} onCodeChange={handleManualSelect} />
+            <RegionSelector selectedCode={selectedCode || ""} onCodeChange={handleMapSelect} />
           </div>
         )}
 
@@ -420,10 +420,7 @@ function App() {
       {showMap && (
         <MapView
           selectedCode={selectedCode || ""}
-          onCodeChange={(code) => {
-            setSelectedCode(code);
-            setIsManualSelection(true);
-          }}
+          onCodeChange={handleMapSelect}
           onClose={() => setShowMap(false)}
         />
       )}
