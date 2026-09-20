@@ -59,6 +59,7 @@ function App() {
 
   const handleResetToCurrentLocation = () => {
     setIsManualSelection(false);
+    setSelectedCoordinate(null);
     if (geoAreaCode) {
       setSelectedCode(geoAreaCode);
     } else {
