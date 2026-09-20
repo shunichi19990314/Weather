@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import { prefectures } from "../data/prefectures";
 import { UIIcon } from "./UIIcon";
 
@@ -87,14 +88,102 @@ const PREFECTURE_POSITIONS: Record<string, { x: number; y: number; width: number
 };
 
 export function MapView({ selectedCode, onCodeChange, onClose }: MapViewProps) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 5;
+  const BASE_VIEWBOX = { width: 500, height: 500 };
+
+  // Calculate viewBox based on zoom and pan
+  const getViewBox = () => {
+    const width = BASE_VIEWBOX.width / zoom;
+    const height = BASE_VIEWBOX.height / zoom;
+    const x = (BASE_VIEWBOX.width - width) / 2 - pan.x;
+    const y = (BASE_VIEWBOX.height - height) / 2 - pan.y;
+    return `${x} ${y} ${width} ${height}`;
+  };
+
+  // Zoom handlers
+  const handleZoomIn = () => {
+    setZoom((prev) => Math.min(prev * 1.3, MAX_ZOOM));
+  };
+
+  const handleZoomOut = () => {
+    setZoom((prev) => Math.max(prev / 1.3, MIN_ZOOM));
+  };
+
+  const handleReset = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // Mouse wheel zoom
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom((prev) => Math.min(Math.max(prev * delta, MIN_ZOOM), MAX_ZOOM));
+  };
+
+  // Mouse drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0) {
+      setIsDragging(true);
+      setLastPos({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) {
+      const dx = (e.clientX - lastPos.x) / zoom;
+      const dy = (e.clientY - lastPos.y) / zoom;
+      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      setLastPos({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Touch handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setLastPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isDragging && e.touches.length === 1) {
+      const dx = (e.touches[0].clientX - lastPos.x) / zoom;
+      const dy = (e.touches[0].clientY - lastPos.y) / zoom;
+      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      setLastPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
   const handlePrefectureClick = (code: string) => {
-    onCodeChange(code);
-    onClose();
+    if (!isDragging) {
+      onCodeChange(code);
+      onClose();
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="glass-dark rounded-3xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="glass-dark rounded-3xl p-6 max-w-2xl w-full max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-white flex items-center gap-2">
             <UIIcon type="location" size={24} className="text-white" />
@@ -115,11 +204,54 @@ export function MapView({ selectedCode, onCodeChange, onClose }: MapViewProps) {
           </button>
         </div>
 
-        <div className="relative bg-white/5 rounded-2xl p-4">
+        <div className="relative bg-white/5 rounded-2xl overflow-hidden">
+          {/* Zoom Controls */}
+          <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+            <button
+              onClick={handleZoomIn}
+              className="w-10 h-10 glass rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors"
+              title="拡大"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 4V16M4 10H16" stroke="white" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button
+              onClick={handleZoomOut}
+              className="w-10 h-10 glass rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors"
+              title="縮小"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M4 10H16" stroke="white" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button
+              onClick={handleReset}
+              className="w-10 h-10 glass rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors"
+              title="リセット"
+            >
+              <UIIcon type="refresh" size={20} className="text-white" />
+            </button>
+          </div>
+
+          {/* Zoom Level Indicator */}
+          <div className="absolute bottom-4 left-4 z-10 glass rounded-lg px-3 py-1.5">
+            <span className="text-white text-sm font-medium">{Math.round(zoom * 100)}%</span>
+          </div>
+
           <svg
-            viewBox="0 0 500 500"
-            className="w-full h-auto"
-            style={{ maxHeight: "60vh" }}
+            ref={svgRef}
+            viewBox={getViewBox()}
+            className="w-full h-auto cursor-grab active:cursor-grabbing"
+            style={{ maxHeight: "70vh" }}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
             {/* 背景 */}
             <rect width="500" height="500" fill="transparent" />
@@ -199,7 +331,7 @@ export function MapView({ selectedCode, onCodeChange, onClose }: MapViewProps) {
         </div>
 
         <p className="text-xs text-white/60 text-center mt-4">
-          都道府県をクリックして選択
+          ドラッグで移動 • スクロールで拡大・縮小 • 都道府県をクリックして選択
         </p>
       </div>
     </div>
