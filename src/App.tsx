@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useWeather } from "./hooks/useWeather";
 import { useGeolocation } from "./hooks/useGeolocation";
+import { useCoordinateWeather } from "./hooks/useCoordinateWeather";
 import { RegionSelector } from "./components/RegionSelector";
 import { WeatherIcon } from "./components/WeatherIcon";
 import { UIIcon } from "./components/UIIcon";
@@ -12,6 +13,7 @@ function App() {
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [isManualSelection, setIsManualSelection] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [selectedCoordinate, setSelectedCoordinate] = useState<{ lat: number; lng: number } | null>(null);
 
   const {
     latitude,
@@ -35,13 +37,24 @@ function App() {
   const { forecasts, overview, loading: weatherLoading, error: weatherError, lastUpdated } =
     useWeather(selectedCode || "");
 
+  // 座標ベースの天気予報
+  const { data: coordinateWeather, loading: coordWeatherLoading, error: coordWeatherError } =
+    useCoordinateWeather(selectedCoordinate?.lat || null, selectedCoordinate?.lng || null);
+
   const selectedPrefecture = selectedCode
     ? prefectures.find((p) => p.code === selectedCode)
     : null;
 
   const handleManualSelect = (code: string) => {
     setIsManualSelection(true);
+    setSelectedCoordinate(null);
     setSelectedCode(code);
+  };
+
+  const handleCoordinateSelect = (lat: number, lng: number) => {
+    setIsManualSelection(true);
+    setSelectedCode(null);
+    setSelectedCoordinate({ lat, lng });
   };
 
   const handleResetToCurrentLocation = () => {
@@ -53,7 +66,7 @@ function App() {
     }
   };
 
-  const isLoading = geoLoading || (weatherLoading && selectedCode);
+  const isLoading = geoLoading || (weatherLoading && selectedCode) || (coordWeatherLoading && selectedCoordinate);
 
   // 現在の天気情報を取得
   const currentForecast = forecasts[0];
@@ -246,8 +259,8 @@ function App() {
           </div>
         )}
 
-        {/* 天気予報表示 */}
-        {!isLoading && !weatherError && currentForecast && (
+        {/* 天気予報表示（都道府県ベース） */}
+        {!isLoading && !weatherError && currentForecast && !selectedCoordinate && (
           <div className="space-y-6 animate-fade-in">
             {/* 現在の天気 - 大きな表示 */}
             <div className="text-center py-8">
@@ -369,6 +382,118 @@ function App() {
           </div>
         )}
 
+        {/* 天気予報表示（座標ベース） */}
+        {!isLoading && !coordWeatherError && coordinateWeather && selectedCoordinate && (
+          <div className="space-y-6 animate-fade-in">
+            {/* 現在の天気 - 大きな表示 */}
+            <div className="text-center py-8">
+              <h2 className="text-3xl font-light text-white mb-2">
+                {coordinateWeather.locationName}
+              </h2>
+              <div className="text-8xl font-thin text-white mb-4">
+                {coordinateWeather.daily.temperature_2m_max[0] !== undefined 
+                  ? `${Math.round(coordinateWeather.daily.temperature_2m_max[0])}°` 
+                  : "--°"}
+              </div>
+              <div className="mb-4 flex justify-center">
+                <WeatherIcon code={String(coordinateWeather.daily.weather_code[0])} size={120} />
+              </div>
+              <p className="text-xl text-white/90 mb-2">
+                {getWeatherDescription(String(coordinateWeather.daily.weather_code[0]))}
+              </p>
+              <div className="flex items-center justify-center gap-4 text-white/80">
+                {coordinateWeather.daily.temperature_2m_max[0] !== undefined && (
+                  <span>最高: {Math.round(coordinateWeather.daily.temperature_2m_max[0])}°</span>
+                )}
+                {coordinateWeather.daily.temperature_2m_min[0] !== undefined && (
+                  <span>最低: {Math.round(coordinateWeather.daily.temperature_2m_min[0])}°</span>
+                )}
+              </div>
+              <p className="text-xs text-white/50 mt-4">
+                緯度: {coordinateWeather.latitude.toFixed(4)}, 経度: {coordinateWeather.longitude.toFixed(4)}
+              </p>
+            </div>
+
+            {/* 詳細情報カード */}
+            <div className="glass rounded-2xl p-6">
+              <h3 className="text-xs uppercase tracking-wider text-white/60 mb-4">
+                詳細情報
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-white/60 mb-1 flex items-center gap-1">
+                    <UIIcon type="rain" size={14} className="text-blue-300" />
+                    <span>降水確率</span>
+                  </div>
+                  <div className="text-2xl font-light text-white">
+                    {coordinateWeather.daily.precipitation_probability_max[0] !== undefined 
+                      ? `${coordinateWeather.daily.precipitation_probability_max[0]}%` 
+                      : "--"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3日間の予報 */}
+            {coordinateWeather.daily.time.length > 1 && (
+              <div className="glass rounded-2xl p-6">
+                <h3 className="text-xs uppercase tracking-wider text-white/60 mb-4">
+                  3日間の予報
+                </h3>
+                <div className="space-y-3">
+                  {coordinateWeather.daily.time.slice(1).map((time, index) => {
+                    const dateIndex = index + 1;
+                    const date = new Date(time);
+                    const dateLabel = ["明日", "明後日"][index] || `${date.getMonth() + 1}/${date.getDate()}`;
+                    const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between py-2 border-b border-white/10 last:border-b-0">
+                        <div className="flex items-center gap-3">
+                          <WeatherIcon code={String(coordinateWeather.daily.weather_code[dateIndex])} size={32} />
+                          <div>
+                            <div className="text-white font-medium">{dateLabel}</div>
+                            <div className="text-xs text-white/70">{dateStr}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            {coordinateWeather.daily.temperature_2m_max[dateIndex] !== undefined && (
+                              <div className="text-white font-light">
+                                {Math.round(coordinateWeather.daily.temperature_2m_max[dateIndex])}°
+                              </div>
+                            )}
+                            {coordinateWeather.daily.temperature_2m_min[dateIndex] !== undefined && (
+                              <div className="text-xs text-white/70">
+                                {Math.round(coordinateWeather.daily.temperature_2m_min[dateIndex])}°
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs text-white/70 w-12 text-right flex items-center justify-end gap-0.5">
+                            <UIIcon type="rain" size={12} className="text-blue-300" />
+                            <span>
+                              {coordinateWeather.daily.precipitation_probability_max[dateIndex] !== undefined 
+                                ? `${coordinateWeather.daily.precipitation_probability_max[dateIndex]}%` 
+                                : "--"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* データソース */}
+            <div className="glass rounded-2xl p-4">
+              <p className="text-xs text-white/50 text-center">
+                データ提供: Open-Meteo API
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* 空の状態 */}
         {!isLoading && !weatherError && forecasts.length === 0 && !selectedCode && (
           <div className="text-center py-20">
@@ -421,9 +546,11 @@ function App() {
         <MapView
           selectedCode={selectedCode || ""}
           onCodeChange={(code) => {
+            setSelectedCoordinate(null);
             setSelectedCode(code);
             setIsManualSelection(true);
           }}
+          onCoordinateSelect={handleCoordinateSelect}
           onClose={() => setShowMap(false)}
         />
       )}

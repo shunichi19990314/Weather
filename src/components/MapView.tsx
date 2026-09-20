@@ -7,6 +7,7 @@ import { prefectures } from "../data/prefectures";
 interface MapViewProps {
   selectedCode: string;
   onCodeChange: (code: string) => void;
+  onCoordinateSelect?: (lat: number, lng: number) => void;
   onClose: () => void;
 }
 
@@ -39,7 +40,7 @@ function getNearestPrefecture(lat: number, lng: number): string | null {
   return nearestCode;
 }
 
-export function MapView({ selectedCode, onCodeChange, onClose }: MapViewProps) {
+export function MapView({ selectedCode, onCodeChange, onCoordinateSelect, onClose }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const clickMarkerRef = useRef<L.Marker | null>(null);
@@ -110,23 +111,31 @@ export function MapView({ selectedCode, onCodeChange, onClose }: MapViewProps) {
         }),
       }).addTo(map);
 
-      // クリック座標から最も近い都道府県を判定
-      const nearestCode = getNearestPrefecture(lat, lng);
-      if (nearestCode) {
-        const prefecture = prefectures.find((p) => p.code === nearestCode);
+      // 座標を直接渡して細かい地域の天気を表示
+      if (onCoordinateSelect) {
+        // クリック位置にマーカーを追加
+        if (clickMarkerRef.current) {
+          map.removeLayer(clickMarkerRef.current);
+        }
         
-        // ツールチップで都道府県名を表示
-        if (clickMarkerRef.current && prefecture) {
-          clickMarkerRef.current.bindTooltip(
-            `${prefecture.name} の天気`,
-            { permanent: true, direction: "top", offset: [0, -10] }
-          ).openTooltip();
-          
-          // クリックマーカーもクリック可能にする
-          clickMarkerRef.current.on("click", () => {
-            onCodeChange(nearestCode);
-            onClose();
-          });
+        clickMarkerRef.current = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: "custom-click-marker",
+            html: `<div style="width: 20px; height: 20px; background: rgba(59, 130, 246, 0.8); border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+          }),
+        }).addTo(map);
+
+        // 座標を親コンポーネントに渡す
+        onCoordinateSelect(lat, lng);
+        onClose();
+      } else {
+        // フォールバック: 最も近い都道府県を判定
+        const nearestCode = getNearestPrefecture(lat, lng);
+        if (nearestCode) {
+          onCodeChange(nearestCode);
+          onClose();
         }
       }
     });
