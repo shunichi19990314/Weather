@@ -10,9 +10,39 @@ interface MapViewProps {
   onClose: () => void;
 }
 
+// ハバーサイン距離を計算（2点間の距離をkmで返す）
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// 座標から最も近い都道府県を判定
+function getNearestPrefecture(lat: number, lng: number): string | null {
+  let nearestCode: string | null = null;
+  let minDistance = Infinity;
+
+  Object.entries(prefectureCoordinates).forEach(([code, coords]) => {
+    const distance = haversineDistance(lat, lng, coords.lat, coords.lng);
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearestCode = code;
+    }
+  });
+
+  return nearestCode;
+}
+
 export function MapView({ selectedCode, onCodeChange, onClose }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const clickMarkerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -54,11 +84,51 @@ export function MapView({ selectedCode, onCodeChange, onClose }: MapViewProps) {
         offset: [0, -10],
       });
 
-      // クリックイベント
-      marker.on("click", () => {
+      // マーカークリックイベント
+      marker.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
         onCodeChange(code);
         onClose();
       });
+    });
+
+    // 地図クリックイベント（任意の場所をクリック）
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      const { lat, lng } = e.latlng;
+      
+      // クリック位置にマーカーを追加
+      if (clickMarkerRef.current) {
+        map.removeLayer(clickMarkerRef.current);
+      }
+      
+      clickMarkerRef.current = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: "custom-click-marker",
+          html: `<div style="width: 20px; height: 20px; background: rgba(59, 130, 246, 0.8); border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+        }),
+      }).addTo(map);
+
+      // クリック座標から最も近い都道府県を判定
+      const nearestCode = getNearestPrefecture(lat, lng);
+      if (nearestCode) {
+        const prefecture = prefectures.find((p) => p.code === nearestCode);
+        
+        // ツールチップで都道府県名を表示
+        if (clickMarkerRef.current && prefecture) {
+          clickMarkerRef.current.bindTooltip(
+            `${prefecture.name} の天気`,
+            { permanent: true, direction: "top", offset: [0, -10] }
+          ).openTooltip();
+          
+          // クリックマーカーもクリック可能にする
+          clickMarkerRef.current.on("click", () => {
+            onCodeChange(nearestCode);
+            onClose();
+          });
+        }
+      }
     });
 
     // クリーンアップ
@@ -105,7 +175,7 @@ export function MapView({ selectedCode, onCodeChange, onClose }: MapViewProps) {
         />
 
         <p className="text-xs text-white/60 text-center mt-4">
-          マーカーをクリックして都道府県を選択 • マウスホイールでズーム • ドラッグで移動
+          地図上の任意の場所をクリック • マウスホイールでズーム • ドラッグで移動
         </p>
       </div>
     </div>
