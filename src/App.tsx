@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import { useWeather } from "./hooks/useWeather";
 import { useGeolocation } from "./hooks/useGeolocation";
 import { useCoordinateWeather } from "./hooks/useCoordinateWeather";
+import { useFavorites } from "./hooks/useFavorites";
 import { RegionSelector } from "./components/RegionSelector";
 import { WeatherIcon } from "./components/WeatherIcon";
 import { UIIcon } from "./components/UIIcon";
 import { MapView } from "./components/MapView";
+import { LocationSearch } from "./components/LocationSearch";
+import { FavoritesList } from "./components/FavoritesList";
 import { prefectures } from "./data/prefectures";
 import { getWeatherDescription } from "./utils/weather";
 
@@ -13,7 +16,9 @@ function App() {
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [isManualSelection, setIsManualSelection] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [selectedCoordinate, setSelectedCoordinate] = useState<{ lat: number; lng: number } | null>(null);
+  const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
 
   const {
     latitude,
@@ -51,10 +56,12 @@ function App() {
     setSelectedCode(code);
   };
 
-  const handleCoordinateSelect = (lat: number, lng: number) => {
+  const handleCoordinateSelect = (lat: number, lng: number, name?: string) => {
     setIsManualSelection(true);
     setSelectedCode(null);
     setSelectedCoordinate({ lat, lng });
+    setShowMap(false);
+    setShowSearch(false);
   };
 
   const handleResetToCurrentLocation = () => {
@@ -130,6 +137,13 @@ function App() {
             </div>
             <div className="flex items-center gap-3">
               <button
+                onClick={() => setShowSearch(true)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full glass hover:bg-white/20 transition-colors text-white text-sm"
+              >
+                <UIIcon type="search" size={16} className="text-white" />
+                <span>検索</span>
+              </button>
+              <button
                 onClick={() => setShowMap(true)}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-full glass hover:bg-white/20 transition-colors text-white text-sm"
               >
@@ -147,6 +161,13 @@ function App() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
+        {/* お気に入りリスト */}
+        <FavoritesList
+          favorites={favorites}
+          onSelect={(lat, lng, name) => handleCoordinateSelect(lat, lng, name)}
+          onRemove={removeFavorite}
+        />
+
         {/* 位置情報ステータス */}
         {!isManualSelection && (
           <div className="mb-6">
@@ -422,9 +443,31 @@ function App() {
           <div className="space-y-6 animate-fade-in">
             {/* 現在の天気 - 大きな表示 */}
             <div className="text-center py-8">
-              <h2 className="text-3xl font-light text-white mb-2">
-                {coordinateWeather.locationName}
-              </h2>
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <h2 className="text-3xl font-light text-white">
+                  {coordinateWeather.locationName}
+                </h2>
+                <button
+                  onClick={() => {
+                    if (isFavorite(coordinateWeather.latitude, coordinateWeather.longitude)) {
+                      removeFavorite(`${coordinateWeather.latitude}-${coordinateWeather.longitude}`);
+                    } else {
+                      addFavorite({
+                        name: coordinateWeather.locationName,
+                        latitude: coordinateWeather.latitude,
+                        longitude: coordinateWeather.longitude,
+                      });
+                    }
+                  }}
+                  className={`transition-colors ${
+                    isFavorite(coordinateWeather.latitude, coordinateWeather.longitude)
+                      ? 'text-yellow-400'
+                      : 'text-white/30 hover:text-white/70'
+                  }`}
+                >
+                  <UIIcon type="star" size={28} />
+                </button>
+              </div>
               <div className="text-8xl font-thin text-white mb-4">
                 {coordinateWeather.daily.temperature_2m_max[0] !== undefined 
                   ? `${Math.round(coordinateWeather.daily.temperature_2m_max[0])}°` 
@@ -454,7 +497,7 @@ function App() {
               <h3 className="text-xs uppercase tracking-wider text-white/60 mb-4">
                 詳細情報
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <div className="text-xs text-white/60 mb-1 flex items-center gap-1">
                     <UIIcon type="rain" size={14} className="text-blue-300" />
@@ -463,6 +506,33 @@ function App() {
                   <div className="text-2xl font-light text-white">
                     {coordinateWeather.daily.precipitation_probability_max[0] !== undefined 
                       ? `${coordinateWeather.daily.precipitation_probability_max[0]}%` 
+                      : "--"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-white/60 mb-1">💧 湿度</div>
+                  <div className="text-2xl font-light text-white">
+                    {coordinateWeather.current?.relative_humidity_2m !== undefined 
+                      ? `${coordinateWeather.current.relative_humidity_2m}%` 
+                      : "--"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-white/60 mb-1 flex items-center gap-1">
+                    <UIIcon type="wind" size={14} className="text-gray-300" />
+                    <span>風速</span>
+                  </div>
+                  <div className="text-2xl font-light text-white">
+                    {coordinateWeather.current?.wind_speed_10m !== undefined 
+                      ? `${Math.round(coordinateWeather.current.wind_speed_10m)} km/h` 
+                      : "--"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-white/60 mb-1">☀️ UV指数</div>
+                  <div className="text-2xl font-light text-white">
+                    {coordinateWeather.current?.uv_index !== undefined 
+                      ? coordinateWeather.current.uv_index.toFixed(1)
                       : "--"}
                   </div>
                 </div>
@@ -587,6 +657,16 @@ function App() {
           }}
           onCoordinateSelect={handleCoordinateSelect}
           onClose={() => setShowMap(false)}
+        />
+      )}
+
+      {/* 検索モーダル */}
+      {showSearch && (
+        <LocationSearch
+          onSelect={(lat, lng, name) => {
+            handleCoordinateSelect(lat, lng, name);
+          }}
+          onClose={() => setShowSearch(false)}
         />
       )}
     </div>

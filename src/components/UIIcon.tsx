@@ -1,5 +1,5 @@
 interface UIIconProps {
-  type: "rain" | "wind" | "wave" | "location" | "search" | "refresh";
+  type: "rain" | "wind" | "wave" | "location" | "search" | "refresh" | "star";
   size?: number;
   className?: string;
 }
@@ -112,6 +112,13 @@ export function UIIcon({ type, size = 20, className = "" }: UIIconProps) {
             strokeLinecap="round"
             strokeLinejoin="round"
           />
+        </svg>
+      );
+
+    case "star":
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
         </svg>
       );
 

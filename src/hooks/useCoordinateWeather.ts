@@ -4,12 +4,20 @@ export interface CoordinateWeatherData {
   latitude: number;
   longitude: number;
   locationName: string;
+  current: {
+    temperature_2m: number;
+    relative_humidity_2m: number;
+    wind_speed_10m: number;
+    weather_code: number;
+    uv_index: number;
+  };
   daily: {
     time: string[];
     weather_code: number[];
     temperature_2m_max: number[];
     temperature_2m_min: number[];
     precipitation_probability_max: number[];
+    uv_index_max: number[];
   };
 }
 
@@ -29,8 +37,8 @@ export function useCoordinateWeather(latitude: number | null, longitude: number 
       setError(null);
 
       try {
-        // Open-Meteo APIから天気予報を取得
-        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=3`;
+        // Open-Meteo APIから天気予報を取得（現在地 + 日次予報）
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&timezone=auto&forecast_days=3`;
         
         const weatherResponse = await fetch(weatherUrl);
         if (!weatherResponse.ok) {
@@ -72,6 +80,7 @@ export function useCoordinateWeather(latitude: number | null, longitude: number 
           latitude,
           longitude,
           locationName,
+          current: weatherData.current,
           daily: weatherData.daily
         });
       } catch (err) {
