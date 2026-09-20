@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
-import { prefectureNameToCode } from "../data/prefectures";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { prefectureNameToCode, prefectures } from "../data/prefectures";
+import { prefectureCoordinates } from "../data/prefectureCoordinates";
 
 interface GeolocationState {
   latitude: number | null;
@@ -17,58 +18,7 @@ interface UseGeolocationResult extends GeolocationState {
   retry: () => void;
 }
 
-// 都道府県庁所在地の座標データ（緯度, 経度）
-const PREFECTURE_CAPITALS: Record<string, [number, number]> = {
-  "北海道": [43.0618, 141.3545],
-  "青森県": [40.8244, 140.7400],
-  "岩手県": [39.7036, 141.1527],
-  "宮城県": [38.2688, 140.8721],
-  "秋田県": [39.7036, 140.1024],
-  "山形県": [38.2405, 140.3633],
-  "福島県": [37.7503, 140.4676],
-  "茨城県": [36.3414, 140.4468],
-  "栃木県": [36.5658, 139.8836],
-  "群馬県": [36.3911, 139.0608],
-  "埼玉県": [35.8569, 139.6489],
-  "千葉県": [35.6074, 140.1236],
-  "東京都": [35.6895, 139.6917],
-  "神奈川県": [35.4478, 139.6425],
-  "新潟県": [37.9026, 139.0232],
-  "富山県": [36.6953, 137.2114],
-  "石川県": [36.5946, 136.6256],
-  "福井県": [36.0652, 136.2216],
-  "山梨県": [35.6635, 138.5684],
-  "長野県": [36.6514, 138.1809],
-  "岐阜県": [35.3912, 136.7223],
-  "静岡県": [34.9769, 138.3831],
-  "愛知県": [35.1802, 136.9066],
-  "三重県": [34.7303, 136.5086],
-  "滋賀県": [35.0045, 135.8686],
-  "京都府": [35.0214, 135.7556],
-  "大阪府": [34.6863, 135.5200],
-  "兵庫県": [34.6913, 135.1830],
-  "奈良県": [34.6853, 135.8327],
-  "和歌山県": [34.2261, 135.1675],
-  "鳥取県": [35.5039, 134.2383],
-  "島根県": [35.4723, 133.0505],
-  "岡山県": [34.6618, 133.9344],
-  "広島県": [34.3966, 132.4596],
-  "山口県": [34.1861, 131.4714],
-  "徳島県": [34.0658, 134.5593],
-  "香川県": [34.3401, 134.0434],
-  "愛媛県": [33.8416, 132.7657],
-  "高知県": [33.5597, 133.5311],
-  "福岡県": [33.6066, 130.4183],
-  "佐賀県": [33.2494, 130.2998],
-  "長崎県": [32.7448, 129.8737],
-  "熊本県": [32.7898, 130.7417],
-  "大分県": [33.2382, 131.6126],
-  "宮崎県": [31.9105, 131.4239],
-  "鹿児島県": [31.5602, 130.5581],
-  "沖縄県": [26.3344, 127.8056],
-};
-
-// ハバーサイン距離を計算（2点間の距離をkmで返す）
+// ハバーサイン距離を計算（2 点間の距離を km で返す）
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -81,20 +31,20 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-// 緯度経度から最も近い都道府県を判定（同期・即座に結果を返す）
-function getNearestPrefecture(lat: number, lon: number): string | null {
-  let nearestPrefecture: string | null = null;
+// 緯度経度から最も近い予報区を判定（同期・即座に結果を返す）
+function getNearestForecastArea(lat: number, lon: number): string | null {
+  let nearestCode: string | null = null;
   let minDistance = Infinity;
 
-  for (const [prefecture, [capitalLat, capitalLon]] of Object.entries(PREFECTURE_CAPITALS)) {
-    const distance = haversineDistance(lat, lon, capitalLat, capitalLon);
+  for (const [code, coords] of Object.entries(prefectureCoordinates)) {
+    const distance = haversineDistance(lat, lon, coords.lat, coords.lng);
     if (distance < minDistance) {
       minDistance = distance;
-      nearestPrefecture = prefecture;
+      nearestCode = code;
     }
   }
 
-  return nearestPrefecture;
+  return nearestCode;
 }
 
 // 都道府県名から予報区コードを取得（同期）
@@ -112,7 +62,7 @@ function getAreaCodeFromPrefectureName(prefectureName: string): string | null {
   return null;
 }
 
-// 逆ジオコーディングAPIを並列実行（タイムアウト付き）
+// 逆ジオコーディング API を並列実行（タイムアウト付き）
 async function reverseGeocodeAsync(lat: number, lon: number): Promise<{
   city: string | null;
   ward: string | null;
@@ -134,7 +84,7 @@ async function reverseGeocodeAsync(lat: number, lon: number): Promise<{
 
     clearTimeout(timeoutId);
 
-    // BigDataCloudの結果
+    // BigDataCloud の結果
     if (bigDataResult.status === "fulfilled") {
       const data = bigDataResult.value;
       if (data?.countryCode === "JP") {
@@ -144,7 +94,7 @@ async function reverseGeocodeAsync(lat: number, lon: number): Promise<{
       }
     }
 
-    // Nominatimの結果
+    // Nominatim の結果
     if (nominatimResult.status === "fulfilled") {
       const data = nominatimResult.value;
       if (data?.address?.country_code === "jp") {
@@ -177,6 +127,56 @@ export function useGeolocation(): UseGeolocationResult {
 
   const isInitialMount = useRef(true);
 
+  // 緯度経度が変更されたときに、その位置から予報区コードを計算する関数
+  const updateLocationFromCoords = useCallback((lat: number, lon: number, accuracy: number | null) => {
+    // 最も近い予報区を取得
+    const forecastAreaCode = getNearestForecastArea(lat, lon);
+    
+    if (!forecastAreaCode) {
+      setState({
+        latitude: lat,
+        longitude: lon,
+        accuracy: accuracy || null,
+        prefectureName: null,
+        cityName: null,
+        wardName: null,
+        areaCode: null,
+        loading: false,
+        error: "位置情報から地域を特定できませんでした",
+      });
+      return;
+    }
+
+    // 予報区名を取得
+    const forecastArea = prefectures.find(p => p.code === forecastAreaCode);
+    const prefectureName = forecastArea?.name || null;
+
+    setState({
+      latitude: lat,
+      longitude: lon,
+      accuracy: accuracy || null,
+      prefectureName,
+      cityName: null,
+      wardName: null,
+      areaCode: forecastAreaCode,
+      loading: false,
+      error: null,
+    });
+
+    // バックグラウンドで API から詳細情報を取得
+    reverseGeocodeAsync(lat, lon).then(({ city, ward }) => {
+      if (city || ward) {
+        setState((prev) => ({
+          ...prev,
+          cityName: city,
+          wardName: ward,
+        }));
+      }
+    }).catch((error) => {
+      console.warn("Background geocoding failed:", error);
+    });
+  }, []);
+
   const getLocation = () => {
     console.log("getLocation called");
     
@@ -192,72 +192,13 @@ export function useGeolocation(): UseGeolocationResult {
 
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
-    // getCurrentPositionを使用（watchPositionより確実）
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         console.log("Position obtained:", position.coords);
         const { latitude, longitude, accuracy } = position.coords;
 
-        // ステップ1: 即座に距離ベースで都道府県を特定（同期・高速）
-        const prefectureName = getNearestPrefecture(latitude, longitude);
-        console.log("Nearest prefecture:", prefectureName);
-
-        if (prefectureName) {
-          const areaCode = getAreaCodeFromPrefectureName(prefectureName);
-          
-          if (areaCode) {
-            // まず距離ベースの結果で状態を更新（loadingをfalseに）
-            setState({
-              latitude,
-              longitude,
-              accuracy: accuracy || null,
-              prefectureName,
-              cityName: null,
-              wardName: null,
-              areaCode,
-              loading: false,
-              error: null,
-            });
-
-            // ステップ2: バックグラウンドでAPIから詳細情報を取得
-            try {
-              const { city, ward } = await reverseGeocodeAsync(latitude, longitude);
-              if (city || ward) {
-                setState((prev) => ({
-                  ...prev,
-                  cityName: city,
-                  wardName: ward,
-                }));
-              }
-            } catch (error) {
-              console.warn("Background geocoding failed:", error);
-            }
-          } else {
-            setState({
-              latitude,
-              longitude,
-              accuracy: accuracy || null,
-              prefectureName,
-              cityName: null,
-              wardName: null,
-              areaCode: null,
-              loading: false,
-              error: `${prefectureName}の予報区コードが見つかりませんでした`,
-            });
-          }
-        } else {
-          setState({
-            latitude,
-            longitude,
-            accuracy: accuracy || null,
-            prefectureName: null,
-            cityName: null,
-            wardName: null,
-            areaCode: null,
-            loading: false,
-            error: "位置情報から地域を特定できませんでした",
-          });
-        }
+        // 緯度経度から予報区を更新
+        updateLocationFromCoords(latitude, longitude, accuracy || null);
       },
       (error) => {
         console.error("Geolocation error:", error);
@@ -282,9 +223,9 @@ export function useGeolocation(): UseGeolocationResult {
         }));
       },
       {
-        enableHighAccuracy: false, // falseの方が高速で確実
+        enableHighAccuracy: false,
         timeout: 10000,
-        maximumAge: 300000, // 5分間はキャッシュを使用
+        maximumAge: 300000,
       }
     );
   };
