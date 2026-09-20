@@ -74,10 +74,24 @@ export function getWeatherDescription(code: string): string {
   
   const codeNum = parseInt(code);
   
+  // 気象庁コード (100-499)
   if (codeNum >= 100 && codeNum < 200) return "晴れ";
   if (codeNum >= 200 && codeNum < 300) return "曇り";
   if (codeNum >= 300 && codeNum < 400) return "雨";
   if (codeNum >= 400 && codeNum < 500) return "雪";
+  
+  // WMO weather code (Open-Meteo API)
+  if (codeNum === 0) return "快晴";
+  if (codeNum === 1) return "晴れ";
+  if (codeNum === 2) return "一部曇り";
+  if (codeNum === 3) return "曇り";
+  if (codeNum === 45 || codeNum === 48) return "霧";
+  if (codeNum >= 51 && codeNum <= 57) return "霧雨";
+  if (codeNum >= 61 && codeNum <= 67) return "雨";
+  if (codeNum >= 71 && codeNum <= 77) return "雪";
+  if (codeNum >= 80 && codeNum <= 82) return "にわか雨";
+  if (codeNum >= 85 && codeNum <= 86) return "にわか雪";
+  if (codeNum >= 95 && codeNum <= 99) return "雷雨";
   
   return "不明";
 }
