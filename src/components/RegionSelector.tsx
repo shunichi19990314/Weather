@@ -1,4 +1,5 @@
 import { prefectures, regions } from "../data/prefectures";
+import { UIIcon } from "./UIIcon";
 
 interface RegionSelectorProps {
   selectedCode: string;
@@ -9,7 +10,7 @@ export function RegionSelector({ selectedCode, onCodeChange }: RegionSelectorPro
   return (
     <div className="glass rounded-2xl p-6">
       <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-        <span className="text-xl">🗺️</span>
+        <UIIcon type="search" size={20} className="text-white" />
         地域を選択
       </h2>
 

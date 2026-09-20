@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { useWeather } from "./hooks/useWeather";
 import { useGeolocation } from "./hooks/useGeolocation";
 import { RegionSelector } from "./components/RegionSelector";
+import { WeatherIcon } from "./components/WeatherIcon";
+import { UIIcon } from "./components/UIIcon";
 import { prefectures } from "./data/prefectures";
-import { getWeatherEmoji, getWeatherDescription } from "./utils/weather";
+import { getWeatherDescription } from "./utils/weather";
 
 function App() {
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
@@ -54,7 +56,6 @@ function App() {
   // 現在の天気情報を取得
   const currentForecast = forecasts[0];
   const weatherCode = currentForecast?.weatherCode || "100";
-  const weatherEmoji = getWeatherEmoji(weatherCode);
   const weatherDescription = getWeatherDescription(weatherCode);
 
   // 背景グラデーションを決定
@@ -80,7 +81,7 @@ function App() {
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">🌤️</span>
+              <WeatherIcon code="100" size={28} />
               <h1 className="text-lg font-semibold text-white">天気</h1>
             </div>
             {lastUpdated && (
@@ -99,7 +100,7 @@ function App() {
             <div className="glass rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-xl">📍</span>
+                  <UIIcon type="location" size={24} className="text-white" />
                   <div>
                     {geoLoading && (
                       <div className="flex items-center gap-2">
@@ -157,17 +158,19 @@ function App() {
           {!isManualSelection && selectedCode && (
             <button
               onClick={() => setIsManualSelection(true)}
-              className="px-4 py-2 glass text-white text-sm rounded-full hover:bg-white/20 transition-colors"
+              className="px-4 py-2 glass text-white text-sm rounded-full hover:bg-white/20 transition-colors flex items-center gap-2"
             >
-              🗺️ 地域を選択
+              <UIIcon type="search" size={16} className="text-white" />
+              <span>地域を選択</span>
             </button>
           )}
           {isManualSelection && geoAreaCode && (
             <button
               onClick={handleResetToCurrentLocation}
-              className="px-4 py-2 glass text-white text-sm rounded-full hover:bg-white/20 transition-colors"
+              className="px-4 py-2 glass text-white text-sm rounded-full hover:bg-white/20 transition-colors flex items-center gap-2"
             >
-              📍 現在地に戻る
+              <UIIcon type="location" size={16} className="text-white" />
+              <span>現在地に戻る</span>
             </button>
           )}
         </div>
@@ -183,7 +186,18 @@ function App() {
         {isLoading && (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="inline-block animate-spin text-6xl mb-4">🌀</div>
+              <div className="inline-block mb-4">
+                <svg width="64" height="64" viewBox="0 0 64 64" className="animate-spin">
+                  <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="4" />
+                  <path
+                    d="M32 4 A28 28 0 0 1 60 32"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
               <p className="text-white/90 font-medium text-lg">
                 {geoLoading ? "現在地を取得中..." : "天気データを取得中..."}
               </p>
@@ -195,14 +209,27 @@ function App() {
         {weatherError && !isLoading && (
           <div className="max-w-2xl mx-auto">
             <div className="glass rounded-2xl p-6 text-center">
-              <span className="text-5xl mb-3 block">⚠️</span>
+              <div className="mb-3 flex justify-center">
+                <svg width="48" height="48" viewBox="0 0 48 48">
+                  <path
+                    d="M24 4L2 44h44L24 4z"
+                    fill="none"
+                    stroke="#FBBF24"
+                    strokeWidth="3"
+                    strokeLinejoin="round"
+                  />
+                  <line x1="24" y1="18" x2="24" y2="30" stroke="#FBBF24" strokeWidth="3" strokeLinecap="round" />
+                  <circle cx="24" cy="36" r="2" fill="#FBBF24" />
+                </svg>
+              </div>
               <p className="text-white font-medium mb-2 text-lg">データの取得に失敗しました</p>
               <p className="text-white/80 text-sm">{weatherError}</p>
               <button
                 onClick={() => setSelectedCode(selectedCode)}
-                className="mt-4 px-6 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm transition-colors"
+                className="mt-4 px-6 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm transition-colors flex items-center gap-2 mx-auto"
               >
-                再読み込み
+                <UIIcon type="refresh" size={16} className="text-white" />
+                <span>再読み込み</span>
               </button>
             </div>
           </div>
@@ -219,7 +246,9 @@ function App() {
               <div className="text-8xl font-thin text-white mb-4">
                 {currentForecast.tempMax !== "--" ? `${currentForecast.tempMax}°` : "--°"}
               </div>
-              <div className="text-6xl mb-4">{weatherEmoji}</div>
+              <div className="mb-4 flex justify-center">
+                <WeatherIcon code={weatherCode} size={120} />
+              </div>
               <p className="text-xl text-white/90 mb-2">
                 {currentForecast.weather}
               </p>
@@ -240,18 +269,27 @@ function App() {
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-xs text-white/60 mb-1">💧 降水確率</div>
+                  <div className="text-xs text-white/60 mb-1 flex items-center gap-1">
+                    <UIIcon type="rain" size={14} className="text-blue-300" />
+                    <span>降水確率</span>
+                  </div>
                   <div className="text-2xl font-light text-white">{currentForecast.pop !== "--" ? `${currentForecast.pop}%` : "--"}</div>
                 </div>
                 {currentForecast.wind && (
                   <div>
-                    <div className="text-xs text-white/60 mb-1">💨 風</div>
+                    <div className="text-xs text-white/60 mb-1 flex items-center gap-1">
+                      <UIIcon type="wind" size={14} className="text-gray-300" />
+                      <span>風</span>
+                    </div>
                     <div className="text-sm font-light text-white">{currentForecast.wind}</div>
                   </div>
                 )}
                 {currentForecast.wave && (
                   <div>
-                    <div className="text-xs text-white/60 mb-1">🌊 波</div>
+                    <div className="text-xs text-white/60 mb-1 flex items-center gap-1">
+                      <UIIcon type="wave" size={14} className="text-blue-300" />
+                      <span>波</span>
+                    </div>
                     <div className="text-sm font-light text-white">{currentForecast.wave}</div>
                   </div>
                 )}
@@ -268,7 +306,7 @@ function App() {
                   {forecasts.slice(1).map((forecast, index) => (
                     <div key={index} className="flex items-center justify-between py-2 border-b border-white/10 last:border-b-0">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{getWeatherEmoji(forecast.weatherCode)}</span>
+                        <WeatherIcon code={forecast.weatherCode} size={32} />
                         <div>
                           <div className="text-white font-medium">{forecast.dateLabel}</div>
                           <div className="text-xs text-white/70">{forecast.date}</div>
@@ -283,8 +321,9 @@ function App() {
                             <div className="text-xs text-white/70">{forecast.tempMin}°</div>
                           )}
                         </div>
-                        <div className="text-xs text-white/70 w-12 text-right">
-                          💧{forecast.pop !== "--" ? `${forecast.pop}%` : "--"}
+                        <div className="text-xs text-white/70 w-12 text-right flex items-center justify-end gap-0.5">
+                          <UIIcon type="rain" size={12} className="text-blue-300" />
+                          <span>{forecast.pop !== "--" ? `${forecast.pop}%` : "--"}</span>
                         </div>
                       </div>
                     </div>
@@ -322,16 +361,19 @@ function App() {
         {/* 空の状態 */}
         {!isLoading && !weatherError && forecasts.length === 0 && !selectedCode && (
           <div className="text-center py-20">
-            <span className="text-6xl mb-4 block">🔍</span>
+            <div className="mb-4 flex justify-center">
+              <UIIcon type="search" size={64} className="text-white/70" />
+            </div>
             <p className="text-white/90 text-lg mb-2">位置情報を取得できませんでした</p>
             <p className="text-sm text-white/70 mb-4">
               地域を手動で選択してください
             </p>
             <button
               onClick={() => setIsManualSelection(true)}
-              className="px-6 py-2 glass text-white rounded-lg text-sm hover:bg-white/20 transition-colors"
+              className="px-6 py-2 glass text-white rounded-lg text-sm hover:bg-white/20 transition-colors flex items-center gap-2 mx-auto"
             >
-              地域を選択
+              <UIIcon type="search" size={16} className="text-white" />
+              <span>地域を選択</span>
             </button>
           </div>
         )}
