@@ -96,6 +96,11 @@ function App() {
                       <div>
                         <p className="text-sm text-red-600 font-medium">位置情報の取得に失敗</p>
                         <p className="text-xs text-gray-500 mt-1">{geoError}</p>
+                        {latitude !== null && longitude !== null && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            緯度: {latitude.toFixed(4)}, 経度: {longitude.toFixed(4)}
+                          </p>
+                        )}
                       </div>
                     )}
                     {!geoLoading && !geoError && prefectureName && (
