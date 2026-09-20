@@ -1,0 +1,59 @@
+{
+  "name": "global-mercator",
+  "version": "3.1.0",
+  "description": "Tools to help with TMS, Quadkey & Google (XYZ) Tiles",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/DenisCarriere/global-mercator.git"
+  },
+  "main": "global-mercator.js",
+  "module": "index.js",
+  "jsnext:main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.d.ts",
+    "index.js",
+    "global-mercator.js"
+  ],
+  "scripts": {
+    "pretest": "rollup -c rollup.config.js",
+    "test": "tap test.js --coverage",
+    "posttest": "standard index.js",
+    "bench": "node bench.js",
+    "docs": "documentation readme index.js --shallow --section=API"
+  },
+  "author": "Denis Carriere <@DenisCarriere>",
+  "license": "MIT",
+  "keywords": [
+    "gis",
+    "geo",
+    "geojs",
+    "geospatial",
+    "geography",
+    "geometry",
+    "extent",
+    "geojson",
+    "google",
+    "tms",
+    "xyz",
+    "tile",
+    "slippy",
+    "map",
+    "latlng",
+    "lnglat",
+    "latitude",
+    "longitude",
+    "bbox",
+    "pixels",
+    "meters",
+    "quadkey"
+  ],
+  "devDependencies": {
+    "benchmark": "*",
+    "documentation": "*",
+    "rollup": "*",
+    "standard": "*",
+    "tap": "*"
+  },
+  "dependencies": {}
+}
