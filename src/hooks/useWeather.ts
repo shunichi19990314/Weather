@@ -29,12 +29,13 @@ function parseForecastData(data: any[]): DailyForecast[] {
   const timeSeries = data[0]?.timeSeries || [];
 
   console.log("TimeSeries count:", timeSeries.length);
-  console.log("TimeSeries structure:", timeSeries);
 
   // 天気予報（timeSeries[0]）
   const weatherSeries = timeSeries[0];
-  // 気温予報（timeSeries[1]）- 存在しない場合もある
-  const tempSeries = timeSeries[1];
+  // 降水確率（timeSeries[1]）
+  const popSeries = timeSeries[1];
+  // 気温（timeSeries[2]）- 存在しない場合もある
+  const tempSeries = timeSeries[2];
 
   if (!weatherSeries || !weatherSeries.timeDefines) {
     console.warn("No weather series data");
@@ -46,19 +47,19 @@ function parseForecastData(data: any[]): DailyForecast[] {
   weatherSeries.timeDefines.forEach((time: string, index: number) => {
     const area = weatherSeries.areas?.[0];
     
-    // 気温データの抽出（構造が異なる場合に対応）
+    // 気温データの抽出（timeSeries[2]から）
     let tempMin = "--";
     let tempMax = "--";
     
     if (tempSeries && tempSeries.areas && tempSeries.areas[0]) {
       const tempArea = tempSeries.areas[0];
       
-      // tempsMinとtempsMaxの構造を確認
-      if (tempArea.tempsMin && tempArea.tempsMin.temps) {
-        tempMin = tempArea.tempsMin.temps[index] || "--";
+      // tempsMinとtempsMaxは直接配列として存在
+      if (tempArea.tempsMin && tempArea.tempsMin[index] !== undefined && tempArea.tempsMin[index] !== "") {
+        tempMin = tempArea.tempsMin[index];
       }
-      if (tempArea.tempsMax && tempArea.tempsMax.temps) {
-        tempMax = tempArea.tempsMax.temps[index] || "--";
+      if (tempArea.tempsMax && tempArea.tempsMax[index] !== undefined && tempArea.tempsMax[index] !== "") {
+        tempMax = tempArea.tempsMax[index];
       }
     }
 
@@ -66,9 +67,16 @@ function parseForecastData(data: any[]): DailyForecast[] {
     const month = date.getMonth() + 1;
     const day = date.getDate();
 
-    // 降水確率の取得
-    const pop = area?.pops?.[index];
-    const popValue = pop !== undefined && pop !== null ? pop : "--";
+    // 降水確率の取得（timeSeries[1]から）
+    let popValue = "--";
+    if (popSeries && popSeries.areas && popSeries.areas[0] && popSeries.areas[0].pops) {
+      // 降水確率は6時間ごとなので、日付ごとに最初の値を使用
+      const popIndex = index * 2; // 簡易的なマッピング
+      const pop = popSeries.areas[0].pops[popIndex];
+      if (pop !== undefined && pop !== null && pop !== "") {
+        popValue = pop;
+      }
+    }
 
     forecasts.push({
       date: `${month}/${day}`,
