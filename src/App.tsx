@@ -15,6 +15,7 @@ function App() {
     latitude,
     longitude,
     prefectureName,
+    cityName,
     areaCode: geoAreaCode,
     loading: geoLoading,
     error: geoError,
@@ -106,7 +107,7 @@ function App() {
                     {!geoLoading && !geoError && prefectureName && (
                       <div>
                         <p className="text-sm font-medium text-gray-800">
-                          現在地: {prefectureName}
+                          現在地: {prefectureName}{cityName ? ` ${cityName}` : ""}
                         </p>
                         {latitude && longitude && (
                           <p className="text-xs text-gray-500 mt-0.5">
