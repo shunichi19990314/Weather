@@ -76,6 +76,18 @@ function App() {
 
   // 背景グラデーションを決定
   const getBackgroundGradient = () => {
+    // 座標選択時はWMOコード、それ以外は気象庁コード
+    if (selectedCoordinate && coordinateWeather) {
+      const wmoCode = coordinateWeather.daily.weather_code[0];
+      if (wmoCode === 0 || wmoCode === 1) return "gradient-sunny";
+      if (wmoCode === 2 || wmoCode === 3) return "gradient-cloudy";
+      if ((wmoCode >= 51 && wmoCode <= 67) || (wmoCode >= 80 && wmoCode <= 82)) return "gradient-rainy";
+      if ((wmoCode >= 71 && wmoCode <= 77) || (wmoCode >= 85 && wmoCode <= 86)) return "gradient-snowy";
+      if (wmoCode >= 95 && wmoCode <= 99) return "gradient-rainy";
+      return "gradient-sunny";
+    }
+    
+    // 気象庁コード
     const codeNum = parseInt(weatherCode);
     if (codeNum >= 100 && codeNum < 200) return "gradient-sunny";
     if (codeNum >= 200 && codeNum < 300) return "gradient-cloudy";
@@ -84,11 +96,27 @@ function App() {
     return "gradient-sunny";
   };
 
-  const locationName = isManualSelection
-    ? selectedPrefecture?.name
-    : prefectureName
-    ? `${prefectureName}${cityName ? ` ${cityName}` : ""}${wardName ? ` ${wardName}` : ""}`
-    : "";
+  // 場所の名前を決定
+  const getLocationName = () => {
+    // 座標選択時
+    if (selectedCoordinate && coordinateWeather) {
+      return coordinateWeather.locationName;
+    }
+    
+    // 手動選択時（都道府県）
+    if (isManualSelection && selectedPrefecture) {
+      return selectedPrefecture.name;
+    }
+    
+    // 現在地
+    if (prefectureName) {
+      return `${prefectureName}${cityName ? ` ${cityName}` : ""}${wardName ? ` ${wardName}` : ""}`;
+    }
+    
+    return "";
+  };
+
+  const locationName = getLocationName();
 
   return (
     <div className={`min-h-screen ${getBackgroundGradient()} transition-all duration-1000`}>
@@ -189,7 +217,7 @@ function App() {
               <span>地域を選択</span>
             </button>
           )}
-          {isManualSelection && geoAreaCode && (
+          {isManualSelection && geoAreaCode && !selectedCoordinate && (
             <button
               onClick={handleResetToCurrentLocation}
               className="px-4 py-2 glass text-white text-sm rounded-full hover:bg-white/20 transition-colors flex items-center gap-2"
@@ -200,8 +228,8 @@ function App() {
           )}
         </div>
 
-        {/* 地域選択 */}
-        {isManualSelection && (
+        {/* 地域選択（座標選択時は非表示） */}
+        {isManualSelection && !selectedCoordinate && (
           <div className="mb-6">
             <RegionSelector selectedCode={selectedCode || ""} onCodeChange={handleManualSelect} />
           </div>
@@ -231,7 +259,7 @@ function App() {
         )}
 
         {/* エラー */}
-        {weatherError && !isLoading && (
+        {(weatherError || coordWeatherError) && !isLoading && (
           <div className="max-w-2xl mx-auto">
             <div className="glass rounded-2xl p-6 text-center">
               <div className="mb-3 flex justify-center">
@@ -248,9 +276,15 @@ function App() {
                 </svg>
               </div>
               <p className="text-white font-medium mb-2 text-lg">データの取得に失敗しました</p>
-              <p className="text-white/80 text-sm">{weatherError}</p>
+              <p className="text-white/80 text-sm">{weatherError || coordWeatherError}</p>
               <button
-                onClick={() => setSelectedCode(selectedCode)}
+                onClick={() => {
+                  if (selectedCoordinate) {
+                    setSelectedCoordinate({ ...selectedCoordinate });
+                  } else if (selectedCode) {
+                    setSelectedCode(selectedCode);
+                  }
+                }}
                 className="mt-4 px-6 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm transition-colors flex items-center gap-2 mx-auto"
               >
                 <UIIcon type="refresh" size={16} className="text-white" />
