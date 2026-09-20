@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { prefectureNameToCode } from "../data/prefectures";
 
 interface GeolocationState {
@@ -11,12 +11,10 @@ interface GeolocationState {
   areaCode: string | null;
   loading: boolean;
   error: string | null;
-  watchId: number | null;
 }
 
 interface UseGeolocationResult extends GeolocationState {
   retry: () => void;
-  stopWatching: () => void;
 }
 
 // 都道府県庁所在地の座標データ（緯度, 経度）
@@ -83,7 +81,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-// 緯度経度から最も近い都道府県を判定
+// 緯度経度から最も近い都道府県を判定（同期・即座に結果を返す）
 function getNearestPrefecture(lat: number, lon: number): string | null {
   let nearestPrefecture: string | null = null;
   let minDistance = Infinity;
@@ -99,88 +97,7 @@ function getNearestPrefecture(lat: number, lon: number): string | null {
   return nearestPrefecture;
 }
 
-// タイムアウト付きのfetch
-function fetchWithTimeout(url: string, options: RequestInit = {}, timeout: number = 5000): Promise<Response> {
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      reject(new Error("Request timeout"));
-    }, timeout);
-
-    fetch(url, options)
-      .then((response) => {
-        clearTimeout(timeoutId);
-        resolve(response);
-      })
-      .catch((error) => {
-        clearTimeout(timeoutId);
-        reject(error);
-      });
-  });
-}
-
-// 複数の逆ジオコーディングAPIを試す
-async function reverseGeocodeMultiSource(lat: number, lon: number): Promise<{
-  prefecture: string | null;
-  city: string | null;
-  ward: string | null;
-}> {
-  // 方法1: BigDataCloud API（無料・制限なし）- 正しいエンドポイント
-  try {
-    const response1 = await fetchWithTimeout(
-      `https://api.bigdatacloud.com/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ja`,
-      {},
-      5000
-    );
-    if (response1.ok) {
-      const data1 = await response1.json();
-      if (data1.countryCode === "JP" && data1.principalSubdivision) {
-        return {
-          prefecture: data1.principalSubdivision,
-          city: data1.city || data1.localityInfo?.informative?.[0]?.name || null,
-          ward: data1.localityInfo?.administrative?.find((a: any) => a.order === 5)?.name || null,
-        };
-      }
-    }
-  } catch (e) {
-    console.warn("BigDataCloud API failed:", e);
-  }
-
-  // 方法2: Nominatim API（OpenStreetMap）
-  try {
-    const response2 = await fetchWithTimeout(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=ja&zoom=12&addressdetails=1&layer=address`,
-      {
-        headers: {
-          "Accept": "application/json",
-        },
-      },
-      5000
-    );
-    if (response2.ok) {
-      const data2 = await response2.json();
-      if (data2.address?.country_code === "jp") {
-        return {
-          prefecture: data2.address.state || null,
-          city: data2.address.city || data2.address.town || data2.address.county || null,
-          ward: data2.address.suburb || data2.address.city_district || data2.address.district || null,
-        };
-      }
-    }
-  } catch (e) {
-    console.warn("Nominatim API failed:", e);
-  }
-
-  // 方法3: 距離ベースのフォールバック（必ず実行される）
-  console.log("Using distance-based fallback");
-  const prefecture = getNearestPrefecture(lat, lon);
-  return {
-    prefecture,
-    city: null,
-    ward: null,
-  };
-}
-
-// 都道府県名から予報区コードを取得
+// 都道府県名から予報区コードを取得（同期）
 function getAreaCodeFromPrefectureName(prefectureName: string): string | null {
   if (prefectureNameToCode[prefectureName]) {
     return prefectureNameToCode[prefectureName];
@@ -195,6 +112,56 @@ function getAreaCodeFromPrefectureName(prefectureName: string): string | null {
   return null;
 }
 
+// 逆ジオコーディングAPIを並列実行（タイムアウト付き）
+async function reverseGeocodeAsync(lat: number, lon: number): Promise<{
+  city: string | null;
+  ward: string | null;
+}> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+  try {
+    // BigDataCloud API と Nominatim API を並列実行
+    const [bigDataResult, nominatimResult] = await Promise.allSettled([
+      fetch(`https://api.bigdatacloud.com/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ja`, {
+        signal: controller.signal,
+      }).then(r => r.json()),
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=ja&zoom=12&addressdetails=1`, {
+        signal: controller.signal,
+        headers: { "Accept": "application/json" },
+      }).then(r => r.json()),
+    ]);
+
+    clearTimeout(timeoutId);
+
+    // BigDataCloudの結果
+    if (bigDataResult.status === "fulfilled") {
+      const data = bigDataResult.value;
+      if (data?.countryCode === "JP") {
+        const city = data.city || data.localityInfo?.informative?.[0]?.name || null;
+        const ward = data.localityInfo?.administrative?.find((a: any) => a.order === 5)?.name || null;
+        return { city, ward };
+      }
+    }
+
+    // Nominatimの結果
+    if (nominatimResult.status === "fulfilled") {
+      const data = nominatimResult.value;
+      if (data?.address?.country_code === "jp") {
+        const city = data.address.city || data.address.town || data.address.county || null;
+        const ward = data.address.suburb || data.address.city_district || data.address.district || null;
+        return { city, ward };
+      }
+    }
+
+    return { city: null, ward: null };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.warn("Reverse geocoding failed:", error);
+    return { city: null, ward: null };
+  }
+}
+
 export function useGeolocation(): UseGeolocationResult {
   const [state, setState] = useState<GeolocationState>({
     latitude: null,
@@ -206,80 +173,15 @@ export function useGeolocation(): UseGeolocationResult {
     areaCode: null,
     loading: true,
     error: null,
-    watchId: null,
   });
 
-  const processLocation = useCallback(async (lat: number, lon: number, accuracy: number) => {
-    setState((prev) => ({
-      ...prev,
-      latitude: lat,
-      longitude: lon,
-      accuracy,
-    }));
+  const isInitialMount = useRef(true);
 
-    try {
-      // 複数の逆ジオコーディングソースを試す
-      const result = await reverseGeocodeMultiSource(lat, lon);
-
-      if (result.prefecture) {
-        const areaCode = getAreaCodeFromPrefectureName(result.prefecture);
-        
-        if (areaCode) {
-          setState((prev) => ({
-            ...prev,
-            prefectureName: result.prefecture,
-            cityName: result.city,
-            wardName: result.ward,
-            areaCode,
-            loading: false,
-            error: null,
-          }));
-        } else {
-          setState((prev) => ({
-            ...prev,
-            prefectureName: result.prefecture,
-            cityName: result.city,
-            wardName: result.ward,
-            loading: false,
-            error: `${result.prefecture}の予報区コードが見つかりませんでした`,
-          }));
-        }
-      } else {
-        setState((prev) => ({
-          ...prev,
-          loading: false,
-          error: "位置情報から地域を特定できませんでした",
-        }));
-      }
-    } catch (error) {
-      console.error("processLocation error:", error);
-      // エラーが発生しても距離ベースでフォールバック
-      const prefecture = getNearestPrefecture(lat, lon);
-      if (prefecture) {
-        const areaCode = getAreaCodeFromPrefectureName(prefecture);
-        if (areaCode) {
-          setState((prev) => ({
-            ...prev,
-            prefectureName: prefecture,
-            cityName: null,
-            wardName: null,
-            areaCode,
-            loading: false,
-            error: null,
-          }));
-          return;
-        }
-      }
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: "位置情報から地域を特定できませんでした",
-      }));
-    }
-  }, []);
-
-  const startWatching = useCallback(() => {
+  const getLocation = () => {
+    console.log("getLocation called");
+    
     if (!navigator.geolocation) {
+      console.log("Geolocation not supported");
       setState((prev) => ({
         ...prev,
         loading: false,
@@ -290,45 +192,75 @@ export function useGeolocation(): UseGeolocationResult {
 
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
-    // watchPositionで継続的に位置情報を取得
-    const watchId = navigator.geolocation.watchPosition(
+    // getCurrentPositionを使用（watchPositionより確実）
+    navigator.geolocation.getCurrentPosition(
       async (position) => {
+        console.log("Position obtained:", position.coords);
         const { latitude, longitude, accuracy } = position.coords;
-        try {
-          await processLocation(latitude, longitude, accuracy || 0);
-        } catch (error) {
-          console.error("watchPosition callback error:", error);
-          // エラーが発生しても、距離ベースでフォールバック
-          const prefecture = getNearestPrefecture(latitude, longitude);
-          if (prefecture) {
-            const areaCode = getAreaCodeFromPrefectureName(prefecture);
-            if (areaCode) {
-              setState((prev) => ({
-                ...prev,
-                latitude,
-                longitude,
-                accuracy: accuracy || 0,
-                prefectureName: prefecture,
-                cityName: null,
-                wardName: null,
-                areaCode,
-                loading: false,
-                error: null,
-              }));
-              return;
+
+        // ステップ1: 即座に距離ベースで都道府県を特定（同期・高速）
+        const prefectureName = getNearestPrefecture(latitude, longitude);
+        console.log("Nearest prefecture:", prefectureName);
+
+        if (prefectureName) {
+          const areaCode = getAreaCodeFromPrefectureName(prefectureName);
+          
+          if (areaCode) {
+            // まず距離ベースの結果で状態を更新（loadingをfalseに）
+            setState({
+              latitude,
+              longitude,
+              accuracy: accuracy || null,
+              prefectureName,
+              cityName: null,
+              wardName: null,
+              areaCode,
+              loading: false,
+              error: null,
+            });
+
+            // ステップ2: バックグラウンドでAPIから詳細情報を取得
+            try {
+              const { city, ward } = await reverseGeocodeAsync(latitude, longitude);
+              if (city || ward) {
+                setState((prev) => ({
+                  ...prev,
+                  cityName: city,
+                  wardName: ward,
+                }));
+              }
+            } catch (error) {
+              console.warn("Background geocoding failed:", error);
             }
+          } else {
+            setState({
+              latitude,
+              longitude,
+              accuracy: accuracy || null,
+              prefectureName,
+              cityName: null,
+              wardName: null,
+              areaCode: null,
+              loading: false,
+              error: `${prefectureName}の予報区コードが見つかりませんでした`,
+            });
           }
-          setState((prev) => ({
-            ...prev,
+        } else {
+          setState({
             latitude,
             longitude,
-            accuracy: accuracy || 0,
+            accuracy: accuracy || null,
+            prefectureName: null,
+            cityName: null,
+            wardName: null,
+            areaCode: null,
             loading: false,
             error: "位置情報から地域を特定できませんでした",
-          }));
+          });
         }
       },
       (error) => {
+        console.error("Geolocation error:", error);
         let errorMessage = "位置情報の取得に失敗しました";
         
         switch (error.code) {
@@ -350,39 +282,22 @@ export function useGeolocation(): UseGeolocationResult {
         }));
       },
       {
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 10000,
+        enableHighAccuracy: false, // falseの方が高速で確実
+        timeout: 10000,
+        maximumAge: 300000, // 5分間はキャッシュを使用
       }
     );
-
-    setState((prev) => ({ ...prev, watchId }));
-  }, [processLocation]);
-
-  const stopWatching = useCallback(() => {
-    if (state.watchId !== null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(state.watchId);
-      setState((prev) => ({ ...prev, watchId: null }));
-    }
-  }, [state.watchId]);
-
-  const retry = useCallback(() => {
-    stopWatching();
-    startWatching();
-  }, [stopWatching, startWatching]);
+  };
 
   useEffect(() => {
-    startWatching();
-
-    // クリーンアップ
-    return () => {
-      stopWatching();
-    };
-  }, [startWatching, stopWatching]);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      getLocation();
+    }
+  }, []);
 
   return {
     ...state,
-    retry,
-    stopWatching,
+    retry: getLocation,
   };
 }

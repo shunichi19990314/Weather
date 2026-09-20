@@ -24,6 +24,16 @@ function App() {
     retry: retryGeolocation,
   } = useGeolocation();
 
+  // 現在地にリセット
+  const handleResetToCurrentLocation = () => {
+    setIsManualSelection(false);
+    if (geoAreaCode) {
+      setSelectedCode(geoAreaCode);
+    } else {
+      retryGeolocation();
+    }
+  };
+
   // 位置情報から自動設定されたコード
   useEffect(() => {
     if (geoAreaCode && !isManualSelection) {
@@ -43,16 +53,6 @@ function App() {
   const handleManualSelect = (code: string) => {
     setIsManualSelection(true);
     setSelectedCode(code);
-  };
-
-  // 現在地にリセット
-  const handleResetToCurrentLocation = () => {
-    setIsManualSelection(false);
-    if (geoAreaCode) {
-      setSelectedCode(geoAreaCode);
-    } else {
-      retryGeolocation();
-    }
   };
 
   // ローディング状態
