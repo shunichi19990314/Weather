@@ -19,8 +19,8 @@ export interface Area {
   waves?: string[];
   pops?: string[];
   temps?: string[];
-  tempsMin?: { area: AreaInfo; temps: string[] };
-  tempsMax?: { area: AreaInfo; temps: string[] };
+  tempsMin?: string[];
+  tempsMax?: string[];
 }
 
 export interface AreaInfo {

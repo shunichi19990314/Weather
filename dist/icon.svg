@@ -1,0 +1,45 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E5C8A;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="sunGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFA500;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#skyGradient)" rx="64"/>
+  
+  <!-- Sun -->
+  <circle cx="380" cy="140" r="80" fill="url(#sunGradient)"/>
+  
+  <!-- Sun rays -->
+  <g opacity="0.3">
+    <circle cx="380" cy="140" r="100" fill="none" stroke="#FFD700" stroke-width="2"/>
+    <circle cx="380" cy="140" r="120" fill="none" stroke="#FFD700" stroke-width="1.5"/>
+  </g>
+  
+  <!-- Cloud 1 (back) -->
+  <g opacity="0.9">
+    <ellipse cx="180" cy="320" rx="80" ry="60" fill="#FFFFFF"/>
+    <ellipse cx="240" cy="310" rx="90" ry="70" fill="#FFFFFF"/>
+    <ellipse cx="300" cy="320" rx="70" ry="55" fill="#FFFFFF"/>
+  </g>
+  
+  <!-- Cloud 2 (front) -->
+  <g opacity="0.95">
+    <ellipse cx="140" cy="360" rx="70" ry="50" fill="#F8F8F8"/>
+    <ellipse cx="200" cy="350" rx="80" ry="60" fill="#F8F8F8"/>
+    <ellipse cx="260" cy="360" rx="65" ry="50" fill="#F8F8F8"/>
+  </g>
+  
+  <!-- Cloud shadows -->
+  <g opacity="0.1">
+    <ellipse cx="180" cy="330" rx="80" ry="60" fill="#000000"/>
+    <ellipse cx="240" cy="320" rx="90" ry="70" fill="#000000"/>
+    <ellipse cx="300" cy="330" rx="70" ry="55" fill="#000000"/>
+  </g>
+</svg>
