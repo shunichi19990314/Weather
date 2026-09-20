@@ -4,12 +4,14 @@ import { useGeolocation } from "./hooks/useGeolocation";
 import { RegionSelector } from "./components/RegionSelector";
 import { WeatherIcon } from "./components/WeatherIcon";
 import { UIIcon } from "./components/UIIcon";
+import { MapView } from "./components/MapView";
 import { prefectures } from "./data/prefectures";
 import { getWeatherDescription } from "./utils/weather";
 
 function App() {
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [isManualSelection, setIsManualSelection] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   const {
     latitude,
@@ -84,11 +86,20 @@ function App() {
               <WeatherIcon code="100" size={28} />
               <h1 className="text-lg font-semibold text-white">天気</h1>
             </div>
-            {lastUpdated && (
-              <div className="text-xs text-white/70">
-                更新: {lastUpdated}
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowMap(true)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full glass hover:bg-white/20 transition-colors text-white text-sm"
+              >
+                <UIIcon type="location" size={16} className="text-white" />
+                <span>地図</span>
+              </button>
+              {lastUpdated && (
+                <div className="text-xs text-white/70">
+                  更新: {lastUpdated}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -404,6 +415,18 @@ function App() {
           </p>
         </div>
       </footer>
+
+      {/* 地図モーダル */}
+      {showMap && (
+        <MapView
+          selectedCode={selectedCode || ""}
+          onCodeChange={(code) => {
+            setSelectedCode(code);
+            setIsManualSelection(true);
+          }}
+          onClose={() => setShowMap(false)}
+        />
+      )}
     </div>
   );
 }
