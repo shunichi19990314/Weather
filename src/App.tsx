@@ -14,8 +14,10 @@ function App() {
   const {
     latitude,
     longitude,
+    accuracy,
     prefectureName,
     cityName,
+    wardName,
     areaCode: geoAreaCode,
     loading: geoLoading,
     error: geoError,
@@ -98,21 +100,41 @@ function App() {
                         <p className="text-sm text-red-600 font-medium">位置情報の取得に失敗</p>
                         <p className="text-xs text-gray-500 mt-1">{geoError}</p>
                         {latitude !== null && longitude !== null && (
-                          <p className="text-xs text-gray-400 mt-1">
-                            緯度: {latitude.toFixed(4)}, 経度: {longitude.toFixed(4)}
-                          </p>
+                          <div className="text-xs text-gray-400 mt-1 space-y-0.5">
+                            <p>緯度: {latitude.toFixed(6)}, 経度: {longitude.toFixed(6)}</p>
+                            {accuracy !== null && <p>精度: ±{Math.round(accuracy)}m</p>}
+                          </div>
                         )}
                       </div>
                     )}
                     {!geoLoading && !geoError && prefectureName && (
                       <div>
                         <p className="text-sm font-medium text-gray-800">
-                          現在地: {prefectureName}{cityName ? ` ${cityName}` : ""}
+                          現在地: {prefectureName}
+                          {cityName ? ` ${cityName}` : ""}
+                          {wardName ? ` ${wardName}` : ""}
                         </p>
                         {latitude && longitude && (
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            緯度: {latitude.toFixed(4)}, 経度: {longitude.toFixed(4)}
-                          </p>
+                          <div className="text-xs text-gray-500 mt-0.5 space-y-0.5">
+                            <p>緯度: {latitude.toFixed(6)}, 経度: {longitude.toFixed(6)}</p>
+                            {accuracy !== null && (
+                              <p className="flex items-center gap-1">
+                                <span>精度:</span>
+                                <span className={`font-medium ${
+                                  accuracy < 50 ? "text-green-600" :
+                                  accuracy < 200 ? "text-yellow-600" :
+                                  "text-orange-600"
+                                }`}>
+                                  ±{Math.round(accuracy)}m
+                                </span>
+                                <span className="text-gray-400">
+                                  {accuracy < 50 ? "(高精度)" :
+                                   accuracy < 200 ? "(中精度)" :
+                                   "(低精度)"}
+                                </span>
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
